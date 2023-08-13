@@ -58,11 +58,16 @@ func (fl *MpFreeList[V]) roundTwoClean() {
 
 func (fl *MpFreeList[V]) liveItems() *pq.DynQueue[V] {
 	l := fl.live.Load()
-	if l != nil {
-		return l
+	if l == nil {
+		v := pq.NewDynQueue[V]()
+		for l == nil {
+			if fl.live.CompareAndSwap(nil, &v) {
+				l = &v
+				registerCleaner(fl)
+			} else {
+				l = fl.live.Load()
+			}
+		}
 	}
-	q := pq.NewDynQueue[V]()
-	fl.live.Store(&q)
-	registerCleaner(fl)
-	return &q
+	return l
 }

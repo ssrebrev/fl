@@ -1,6 +1,8 @@
 package fl
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // FreeList provides object free list for a goroutine. It is not safe for concurrent access.
 type FreeList[V any] struct {
@@ -54,12 +56,17 @@ func (fl *FreeList[V]) roundTwoClean() {
 
 func (fl *FreeList[V]) liveItems() *flItems[V] {
 	l := fl.live.Load()
-	if l != nil {
-		return l
+	if l == nil {
+		v := &flItems[V]{}
+		for l == nil {
+			if fl.live.CompareAndSwap(nil, v) {
+				l = v
+				registerCleaner(fl)
+			} else {
+				l = fl.live.Load()
+			}
+		}
 	}
-	l = &flItems[V]{}
-	fl.live.Store(l)
-	registerCleaner(fl)
 	return l
 }
 
