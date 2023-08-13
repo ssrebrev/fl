@@ -33,28 +33,6 @@ func init() {
 	flQWriter = q.Writer
 	flQReader = q.Reader
 	flQRepeater = q.Reader.KeepDataAndCreateRepeater()
-	// Disabled in favour of 'finalizer' approach. See comments in gcStart
-	//internal.RegisterGCStart(gcStart)
-}
-
-func gcStart() {
-	// This function is called with the world stopped, at the beginning of a garbage collection.
-	// It must not allocate and probably should not call any runtime functions.
-	// See runtime_registerPoolCleanup(poolCleanup) in sync.Pool
-
-	for _, v, ok := flQRepeater.NextAvailable(); ok; _, v, ok = flQRepeater.NextAvailable() {
-		// Potentially lots of atomic.Store operations. Could this delay GC? Probably, consider also:
-		// (1) use straight pointer assignment as we are in STW, and it should be safe
-		// (2) use Finalizer for freelist cleaning
-		v.roundTwoClean()
-	}
-
-	for _, v, ok := flQReader.TryDequeue(); ok; _, v, ok = flQReader.TryDequeue() {
-		// Potentially lots of atomic Swap & Store operations. Could this delay GC? Probably, consider also:
-		// (1) use straight pointer assignment as we are in STW, and it should be safe
-		// (2) use Finalizer for freelist cleaning
-		v.roundOneClean()
-	}
 }
 
 type dummy struct {
